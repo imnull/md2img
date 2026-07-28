@@ -184,18 +184,49 @@ body {
 }
 
 /* 预览容器固定 750px，与导出尺寸一致 */
-.markdown-body {
+.capture-container {
   width: 750px;
   max-width: 100%;
-  padding: 40px;
   background: #ffffff;
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-body {
+  padding: 40px;
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.7;
   color: #333;
   word-wrap: break-word;
+}
+
+/* 导出 footer：二维码 + 项目名 */
+.export-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 40px 28px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.footer-qr {
+  width: 120px;
+  height: 120px;
+  display: block;
+}
+
+.footer-text {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: #888;
+  margin: 0;
 }
 
 /* ============================================================

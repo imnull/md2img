@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { marked } from 'marked'
 import { toPng, toCanvas } from 'html-to-image'
 import jsPDF from 'jspdf'
+import QRCode from 'qrcode'
 
 /* ------------------------------------------------------------------ *
  * 类型
@@ -67,6 +68,23 @@ window.addEventListener('resize', detectMobile)
 const isExporting = ref<boolean>(false)
 const exportStatus = ref<string>('')
 const previewRef = ref<HTMLElement | null>(null)
+
+/* ------------------------------------------------------------------ *
+ * 二维码 footer（导出时附在内容底部）
+ * ------------------------------------------------------------------ */
+const qrDataUrl = ref<string>('')
+
+onMounted(async () => {
+  try {
+    qrDataUrl.value = await QRCode.toDataURL('https://md2img.mkjs.net/', {
+      width: 240,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' },
+    })
+  } catch (err) {
+    console.error('二维码生成失败:', err)
+  }
+})
 
 /* ------------------------------------------------------------------ *
  * 图片预览弹窗（移动端）
@@ -294,7 +312,18 @@ fibonacci(10)
         <div class="preview-scroll">
           <!-- 预览容器：宽度固定 750px，与导出尺寸一致 -->
           <div class="preview-wrapper">
-            <div ref="previewRef" class="markdown-body" v-html="renderedHtml"></div>
+            <div ref="previewRef" class="capture-container">
+              <div class="markdown-body" v-html="renderedHtml"></div>
+              <div class="export-footer">
+                <img
+                  v-if="qrDataUrl"
+                  :src="qrDataUrl"
+                  class="footer-qr"
+                  alt="md2img.mkjs.net"
+                />
+                <div class="footer-text">MD2IMG</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
