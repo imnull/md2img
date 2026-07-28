@@ -376,7 +376,7 @@ fibonacci(10)
             <circle cx="8.5" cy="8.5" r="1.5"/>
             <path d="M21 15l-5-5L5 21"/>
           </svg>
-          导出 PNG 长图
+          导出PNG
         </button>
         <button
           class="btn-export btn-pdf"
@@ -388,7 +388,7 @@ fibonacci(10)
             <path d="M14 2v6h6"/>
             <path d="M9 13h6M9 17h6"/>
           </svg>
-          导出 PDF (A4)
+          导出PDF
         </button>
       </div>
       <div class="export-status" :class="{ active: exportStatus }">

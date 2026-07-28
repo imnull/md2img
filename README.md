@@ -40,6 +40,12 @@ pnpm build
 
 产物在 `dist/` 目录。`base: '/'`（独立域名根路径，见 `vite.config.ts`）。
 
+## 界面
+
+- 左侧：Markdown 源码编辑器（带「插入示例」「清空」按钮）
+- 右侧：实时渲染预览（固定 750px 宽，与导出尺寸一致，WYSIWYG）
+- 底部：两个导出按钮 —— `导出PNG`、`导出PDF`
+
 ## 部署
 
 push 到 `main` 分支即触发 GitHub Actions 自动部署。
