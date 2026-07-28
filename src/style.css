@@ -32,6 +32,8 @@
 html, body {
   height: 100%;
   overflow: hidden;
+  /* 移动端禁止缩放 */
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -47,7 +49,9 @@ body {
 .app {
   display: flex;
   flex-direction: column;
+  /* dvh: 动态视口高度，适配移动端浏览器工具栏 */
   height: 100vh;
+  height: 100dvh;
   width: 100%;
 }
 
@@ -362,6 +366,8 @@ body {
   justify-content: center;
   gap: 24px;
   padding: 0 24px;
+  /* 安全区适配，防止被系统工具栏遮挡 */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
