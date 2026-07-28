@@ -1,13 +1,18 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { marked } from 'marked'
 import { toPng, toCanvas } from 'html-to-image'
 import jsPDF from 'jspdf'
 
 /* ------------------------------------------------------------------ *
+ * 类型
+ * ------------------------------------------------------------------ */
+type ExportFormat = 'png' | 'pdf'
+
+/* ------------------------------------------------------------------ *
  * 状态
  * ------------------------------------------------------------------ */
-const markdownSource = ref(`# Markdown 转图片 / PDF
+const markdownSource = ref<string>(`# Markdown 转图片 / PDF
 
 欢迎使用 **md2img**，一个纯前端的 Markdown 渲染与导出工具。
 
@@ -40,24 +45,24 @@ hello('md2img')
 > 纯前端处理，数据不会上传服务器，安全放心。
 `)
 
-const renderedHtml = computed(() => {
-  return marked.parse(markdownSource.value, { async: false })
+const renderedHtml = computed<string>(() => {
+  return marked.parse(markdownSource.value, { async: false }) as string
 })
 
-const isExporting = ref(false)
-const exportStatus = ref('')
-const previewRef = ref(null)
+const isExporting = ref<boolean>(false)
+const exportStatus = ref<string>('')
+const previewRef = ref<HTMLElement | null>(null)
 
 /* ------------------------------------------------------------------ *
  * 导出 PNG 长图（750px 宽）
  * ------------------------------------------------------------------ */
-async function exportPng() {
+async function exportPng(): Promise<void> {
   if (!previewRef.value) return
   isExporting.value = true
   exportStatus.value = '正在生成 PNG 长图...'
   try {
     await nextTick()
-    const dataUrl = await toPng(previewRef.value, {
+    const dataUrl: string = await toPng(previewRef.value, {
       width: 750,
       pixelRatio: 2,
       backgroundColor: '#ffffff',
@@ -68,8 +73,9 @@ async function exportPng() {
     downloadDataUrl(dataUrl, 'md2img-output.png')
     exportStatus.value = 'PNG 导出成功！'
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
     console.error('PNG 导出失败:', err)
-    exportStatus.value = '导出失败: ' + err.message
+    exportStatus.value = '导出失败: ' + msg
   } finally {
     isExporting.value = false
     setTimeout(() => (exportStatus.value = ''), 3000)
@@ -79,50 +85,49 @@ async function exportPng() {
 /* ------------------------------------------------------------------ *
  * 导出 PDF（A4）
  * ------------------------------------------------------------------ */
-async function exportPdf() {
+async function exportPdf(): Promise<void> {
   if (!previewRef.value) return
   isExporting.value = true
   exportStatus.value = '正在生成 PDF 文档...'
   try {
     await nextTick()
     // 先转 canvas
-    const canvas = await toCanvas(previewRef.value, {
+    const canvas: HTMLCanvasElement = await toCanvas(previewRef.value, {
       pixelRatio: 2,
       backgroundColor: '#ffffff',
     })
 
     // A4 尺寸（mm）
     const pdf = new jsPDF('p', 'mm', 'a4')
-    const pdfWidth = pdf.internal.pageSize.getWidth()   // 210
-    const pdfHeight = pdf.internal.pageSize.getHeight()  // 297
-    const margin = 10 // 页边距 mm
-    const usableWidth = pdfWidth - margin * 2
-    const usableHeight = pdfHeight - margin * 2
+    const pdfWidth: number = pdf.internal.pageSize.getWidth()   // 210
+    const pdfHeight: number = pdf.internal.pageSize.getHeight()  // 297
+    const margin: number = 10
+    const usableWidth: number = pdfWidth - margin * 2
+    const usableHeight: number = pdfHeight - margin * 2
 
     // 图片在 PDF 中的高度（按比例缩放）
-    const imgHeightInPdf = (canvas.height * usableWidth) / canvas.width
-
-    // 把 canvas 转成图片
-    const imgData = canvas.toDataURL('image/png')
+    const imgHeightInPdf: number = (canvas.height * usableWidth) / canvas.width
 
     if (imgHeightInPdf <= usableHeight) {
       // 单页
+      const imgData = canvas.toDataURL('image/png')
       pdf.addImage(imgData, 'PNG', margin, margin, usableWidth, imgHeightInPdf)
     } else {
       // 多页分页
-      let remainingHeight = imgHeightInPdf
-      let position = margin
-      let offset = 0 // 已截取的图片高度（mm 单位的 PDF 坐标系中）
+      const scale: number = canvas.width / usableWidth // px per mm
+      let remainingHeight: number = imgHeightInPdf
+      let offset: number = 0 // 已截取的图片高度（mm）
 
-      // 按页截取
       while (remainingHeight > 0) {
-        const pageHeight = Math.min(usableHeight, remainingHeight)
+        const pageHeight: number = Math.min(usableHeight, remainingHeight)
+
         // 创建该页对应的 canvas 片段
-        const pageCanvas = document.createElement('canvas')
-        const scale = canvas.width / usableWidth // px per mm
+        const pageCanvas: HTMLCanvasElement = document.createElement('canvas')
         pageCanvas.width = canvas.width
         pageCanvas.height = Math.ceil(pageHeight * scale)
-        const ctx = pageCanvas.getContext('2d')
+        const ctx: CanvasRenderingContext2D | null = pageCanvas.getContext('2d')
+        if (!ctx) throw new Error('无法获取 canvas 2D context')
+
         ctx.fillStyle = '#ffffff'
         ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
         ctx.drawImage(
@@ -132,6 +137,7 @@ async function exportPdf() {
           0, 0,
           canvas.width, pageCanvas.height * scale
         )
+
         const pageImgData = pageCanvas.toDataURL('image/png')
         pdf.addImage(pageImgData, 'PNG', margin, margin, usableWidth, pageHeight)
 
@@ -146,8 +152,9 @@ async function exportPdf() {
     pdf.save('md2img-output.pdf')
     exportStatus.value = 'PDF 导出成功！'
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
     console.error('PDF 导出失败:', err)
-    exportStatus.value = '导出失败: ' + err.message
+    exportStatus.value = '导出失败: ' + msg
   } finally {
     isExporting.value = false
     setTimeout(() => (exportStatus.value = ''), 3000)
@@ -157,8 +164,8 @@ async function exportPdf() {
 /* ------------------------------------------------------------------ *
  * 工具函数
  * ------------------------------------------------------------------ */
-function downloadDataUrl(dataUrl, filename) {
-  const link = document.createElement('a')
+function downloadDataUrl(dataUrl: string, filename: string): void {
+  const link: HTMLAnchorElement = document.createElement('a')
   link.href = dataUrl
   link.download = filename
   document.body.appendChild(link)
@@ -166,7 +173,7 @@ function downloadDataUrl(dataUrl, filename) {
   document.body.removeChild(link)
 }
 
-function insertSample() {
+function insertSample(): void {
   markdownSource.value = `# 示例文档
 
 ## 1. 文本样式
