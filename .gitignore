@@ -27,3 +27,6 @@ dist-ssr
 *.tsbuildinfo
 vite.config.d.ts
 vite.config.js
+
+# pnpm local state (build-approval prompts, etc.)
+pnpm-workspace.yaml
