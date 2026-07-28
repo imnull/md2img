@@ -68,6 +68,7 @@ window.addEventListener('resize', detectMobile)
 const isExporting = ref<boolean>(false)
 const exportStatus = ref<string>('')
 const previewRef = ref<HTMLElement | null>(null)
+const markdownBodyRef = ref<HTMLElement | null>(null)
 
 /* ------------------------------------------------------------------ *
  * 二维码 footer（导出时附在内容底部）
@@ -131,16 +132,16 @@ async function exportPng(): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ *
- * 导出 PDF（A4）
+ * 导出 PDF（A4，每页底部带二维码 footer）
  * ------------------------------------------------------------------ */
 async function exportPdf(): Promise<void> {
-  if (!previewRef.value) return
+  if (!markdownBodyRef.value) return
   isExporting.value = true
   exportStatus.value = '正在生成 PDF 文档...'
   try {
     await nextTick()
-    // 先转 canvas
-    const canvas: HTMLCanvasElement = await toCanvas(previewRef.value, {
+    // 只捕获 markdown-body（不含 footer），footer 由 jsPDF 在每页底部绘制
+    const canvas: HTMLCanvasElement = await toCanvas(markdownBodyRef.value, {
       pixelRatio: 2,
       backgroundColor: '#ffffff',
     })
@@ -150,24 +151,32 @@ async function exportPdf(): Promise<void> {
     const pdfWidth: number = pdf.internal.pageSize.getWidth()   // 210
     const pdfHeight: number = pdf.internal.pageSize.getHeight()  // 297
     const margin: number = 10
-    const usableWidth: number = pdfWidth - margin * 2
-    const usableHeight: number = pdfHeight - margin * 2
+    const usableWidth: number = pdfWidth - margin * 2           // 190
+    const footerReserved: number = 22                            // 每页底部预留高度
+    const contentHeight: number = (pdfHeight - margin * 2) - footerReserved // 255
+
+    // footer 几何（mm）
+    const qrSize: number = 12
+    const qrX: number = (pdfWidth - qrSize) / 2                  // 水平居中
+    const qrY: number = pdfHeight - margin - footerReserved + 3
+    const textY: number = qrY + qrSize + 4
 
     // 图片在 PDF 中的高度（按比例缩放）
     const imgHeightInPdf: number = (canvas.height * usableWidth) / canvas.width
 
-    if (imgHeightInPdf <= usableHeight) {
+    if (imgHeightInPdf <= contentHeight) {
       // 单页
       const imgData = canvas.toDataURL('image/png')
       pdf.addImage(imgData, 'PNG', margin, margin, usableWidth, imgHeightInPdf)
+      drawPdfFooter(pdf, qrX, qrY, textY, qrSize)
     } else {
-      // 多页分页
+      // 多页分页：每页内容高度 contentHeight，底部 footerReserved 区域留给 footer
       const scale: number = canvas.width / usableWidth // px per mm
       let remainingHeight: number = imgHeightInPdf
       let offset: number = 0 // 已截取的图片高度（mm）
 
       while (remainingHeight > 0) {
-        const pageHeight: number = Math.min(usableHeight, remainingHeight)
+        const pageHeight: number = Math.min(contentHeight, remainingHeight)
 
         // 创建该页对应的 canvas 片段
         const pageCanvas: HTMLCanvasElement = document.createElement('canvas')
@@ -181,16 +190,17 @@ async function exportPdf(): Promise<void> {
         ctx.drawImage(
           canvas,
           0, offset * scale,
-          canvas.width, pageCanvas.height * scale,
+          canvas.width, pageCanvas.height,
           0, 0,
-          canvas.width, pageCanvas.height * scale
+          canvas.width, pageCanvas.height
         )
 
         const pageImgData = pageCanvas.toDataURL('image/png')
         pdf.addImage(pageImgData, 'PNG', margin, margin, usableWidth, pageHeight)
+        drawPdfFooter(pdf, qrX, qrY, textY, qrSize)
 
-        remainingHeight -= usableHeight
-        offset += usableHeight
+        remainingHeight -= contentHeight
+        offset += contentHeight
         if (remainingHeight > 0) {
           pdf.addPage()
         }
@@ -207,6 +217,23 @@ async function exportPdf(): Promise<void> {
     isExporting.value = false
     setTimeout(() => (exportStatus.value = ''), 3000)
   }
+}
+
+/* 在当前 PDF 页底部绘制二维码 + MD2IMG 文字 */
+function drawPdfFooter(
+  pdf: jsPDF,
+  qrX: number,
+  qrY: number,
+  textY: number,
+  qrSize: number,
+): void {
+  if (qrDataUrl.value) {
+    pdf.addImage(qrDataUrl.value, 'PNG', qrX, qrY, qrSize, qrSize)
+  }
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(9)
+  pdf.setTextColor(136, 136, 136)
+  pdf.text('MD2IMG', 105, textY, { align: 'center' })
 }
 
 /* ------------------------------------------------------------------ *
@@ -313,7 +340,7 @@ fibonacci(10)
           <!-- 预览容器：宽度固定 750px，与导出尺寸一致 -->
           <div class="preview-wrapper">
             <div ref="previewRef" class="capture-container">
-              <div class="markdown-body" v-html="renderedHtml"></div>
+              <div ref="markdownBodyRef" class="markdown-body" v-html="renderedHtml"></div>
               <div class="export-footer">
                 <img
                   v-if="qrDataUrl"
