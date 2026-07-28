@@ -49,9 +49,35 @@ const renderedHtml = computed<string>(() => {
   return marked.parse(markdownSource.value, { async: false }) as string
 })
 
+/* ------------------------------------------------------------------ *
+ * 移动端检测
+ * ------------------------------------------------------------------ */
+const isMobile = ref<boolean>(false)
+
+function detectMobile(): void {
+  isMobile.value = window.matchMedia('(max-width: 768px)').matches
+}
+
+detectMobile()
+window.addEventListener('resize', detectMobile)
+
+/* ------------------------------------------------------------------ *
+ * 状态
+ * ------------------------------------------------------------------ */
 const isExporting = ref<boolean>(false)
 const exportStatus = ref<string>('')
 const previewRef = ref<HTMLElement | null>(null)
+
+/* ------------------------------------------------------------------ *
+ * 图片预览弹窗（移动端）
+ * ------------------------------------------------------------------ */
+const showImageModal = ref<boolean>(false)
+const previewImageDataUrl = ref<string>('')
+
+function closeImageModal(): void {
+  showImageModal.value = false
+  setTimeout(() => (previewImageDataUrl.value = ''), 300)
+}
 
 /* ------------------------------------------------------------------ *
  * 导出 PNG 长图（750px 宽）
@@ -70,8 +96,16 @@ async function exportPng(): Promise<void> {
         width: '750px',
       },
     })
-    downloadDataUrl(dataUrl, 'md2img-output.png')
-    exportStatus.value = 'PNG 导出成功！'
+    if (isMobile.value) {
+      // 移动端：弹窗展示图片，提示长按保存
+      previewImageDataUrl.value = dataUrl
+      showImageModal.value = true
+      exportStatus.value = '长按图片保存到手机'
+    } else {
+      // 桌面端：直接下载
+      downloadDataUrl(dataUrl, 'md2img-output.png')
+      exportStatus.value = 'PNG 导出成功！'
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('PNG 导出失败:', err)
@@ -302,5 +336,31 @@ fibonacci(10)
         {{ exportStatus }}
       </div>
     </footer>
+
+    <!-- 图片预览弹窗（移动端长按保存） -->
+    <div
+      v-if="showImageModal"
+      class="image-modal-overlay"
+      @click="closeImageModal"
+    >
+      <div class="image-modal" @click.stop>
+        <div class="image-modal-header">
+          <span class="image-modal-title">长按图片保存到手机</span>
+          <button class="image-modal-close" @click="closeImageModal">✕</button>
+        </div>
+        <div class="image-modal-body">
+          <img
+            v-if="previewImageDataUrl"
+            :src="previewImageDataUrl"
+            alt="导出预览"
+            class="image-modal-img"
+          />
+          <div v-else class="image-modal-loading">生成中...</div>
+        </div>
+        <div class="image-modal-footer">
+          长按上方图片，选择「保存到相册」
+        </div>
+      </div>
+    </div>
   </div>
 </template>
