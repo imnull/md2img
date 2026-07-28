@@ -89,12 +89,8 @@ async function exportPng(): Promise<void> {
   try {
     await nextTick()
     const dataUrl: string = await toPng(previewRef.value, {
-      width: 750,
       pixelRatio: 2,
       backgroundColor: '#ffffff',
-      style: {
-        width: '750px',
-      },
     })
     if (isMobile.value) {
       // 移动端：弹窗展示图片，提示长按保存
