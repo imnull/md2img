@@ -152,14 +152,8 @@ async function exportPdf(): Promise<void> {
     const pdfHeight: number = pdf.internal.pageSize.getHeight()  // 297
     const margin: number = 10
     const usableWidth: number = pdfWidth - margin * 2           // 190
-    const footerReserved: number = 22                            // 每页底部预留高度
-    const contentHeight: number = (pdfHeight - margin * 2) - footerReserved // 255
-
-    // footer 几何（mm）
-    const qrSize: number = 12
-    const qrX: number = (pdfWidth - qrSize) / 2                  // 水平居中
-    const qrY: number = pdfHeight - margin - footerReserved + 3
-    const textY: number = qrY + qrSize + 4
+    const footerReserved: number = 16                            // 每页底部预留高度（mm）
+    const contentHeight: number = (pdfHeight - margin * 2) - footerReserved // 261
 
     // 图片在 PDF 中的高度（按比例缩放）
     const imgHeightInPdf: number = (canvas.height * usableWidth) / canvas.width
@@ -168,7 +162,7 @@ async function exportPdf(): Promise<void> {
       // 单页
       const imgData = canvas.toDataURL('image/png')
       pdf.addImage(imgData, 'PNG', margin, margin, usableWidth, imgHeightInPdf)
-      drawPdfFooter(pdf, qrX, qrY, textY, qrSize)
+      drawPdfFooter(pdf, pdfWidth, pdfHeight, margin, footerReserved)
     } else {
       // 多页分页：每页内容高度 contentHeight，底部 footerReserved 区域留给 footer
       const scale: number = canvas.width / usableWidth // px per mm
@@ -197,7 +191,7 @@ async function exportPdf(): Promise<void> {
 
         const pageImgData = pageCanvas.toDataURL('image/png')
         pdf.addImage(pageImgData, 'PNG', margin, margin, usableWidth, pageHeight)
-        drawPdfFooter(pdf, qrX, qrY, textY, qrSize)
+        drawPdfFooter(pdf, pdfWidth, pdfHeight, margin, footerReserved)
 
         remainingHeight -= contentHeight
         offset += contentHeight
@@ -219,21 +213,34 @@ async function exportPdf(): Promise<void> {
   }
 }
 
-/* 在当前 PDF 页底部绘制二维码 + MD2IMG 文字 */
+/* 在当前 PDF 页底部右侧绘制横向排列的二维码 + MD2IMG 文字 */
 function drawPdfFooter(
   pdf: jsPDF,
-  qrX: number,
-  qrY: number,
-  textY: number,
-  qrSize: number,
+  pdfWidth: number,
+  pdfHeight: number,
+  margin: number,
+  footerReserved: number,
 ): void {
-  if (qrDataUrl.value) {
-    pdf.addImage(qrDataUrl.value, 'PNG', qrX, qrY, qrSize, qrSize)
-  }
+  const qrSize = 8   // mm
+  const gap = 2      // mm，QR 与文字间距
+  const rightEdge = pdfWidth - margin                       // 200mm
+  const footerY = pdfHeight - margin - footerReserved + 4   // QR 顶部 y
+
   pdf.setFont('helvetica', 'bold')
-  pdf.setFontSize(9)
+  pdf.setFontSize(8)
   pdf.setTextColor(136, 136, 136)
-  pdf.text('MD2IMG', 105, textY, { align: 'center' })
+
+  const textWidth = pdf.getTextWidth('MD2IMG')
+  const textBaselineY = footerY + qrSize - 1                // 与 QR 底部基本对齐
+
+  // 文字右对齐到右边距
+  pdf.text('MD2IMG', rightEdge, textBaselineY, { align: 'right' })
+
+  // QR 在文字左侧
+  if (qrDataUrl.value) {
+    const qrX = rightEdge - textWidth - gap - qrSize
+    pdf.addImage(qrDataUrl.value, 'PNG', qrX, footerY, qrSize, qrSize)
+  }
 }
 
 /* ------------------------------------------------------------------ *
