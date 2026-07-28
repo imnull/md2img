@@ -152,8 +152,8 @@ async function exportPdf(): Promise<void> {
     const pdfHeight: number = pdf.internal.pageSize.getHeight()  // 297
     const margin: number = 10
     const usableWidth: number = pdfWidth - margin * 2           // 190
-    const footerReserved: number = 16                            // 每页底部预留高度（mm）
-    const contentHeight: number = (pdfHeight - margin * 2) - footerReserved // 261
+    const footerReserved: number = 4                             // 内容区底部留白（mm），footer 本身在页边距内
+    const contentHeight: number = (pdfHeight - margin * 2) - footerReserved // 273
 
     // 图片在 PDF 中的高度（按比例缩放）
     const imgHeightInPdf: number = (canvas.height * usableWidth) / canvas.width
@@ -162,7 +162,7 @@ async function exportPdf(): Promise<void> {
       // 单页
       const imgData = canvas.toDataURL('image/png')
       pdf.addImage(imgData, 'PNG', margin, margin, usableWidth, imgHeightInPdf)
-      drawPdfFooter(pdf, pdfWidth, pdfHeight, margin, footerReserved)
+      drawPdfFooter(pdf, pdfWidth, pdfHeight)
     } else {
       // 多页分页：每页内容高度 contentHeight，底部 footerReserved 区域留给 footer
       const scale: number = canvas.width / usableWidth // px per mm
@@ -191,7 +191,7 @@ async function exportPdf(): Promise<void> {
 
         const pageImgData = pageCanvas.toDataURL('image/png')
         pdf.addImage(pageImgData, 'PNG', margin, margin, usableWidth, pageHeight)
-        drawPdfFooter(pdf, pdfWidth, pdfHeight, margin, footerReserved)
+        drawPdfFooter(pdf, pdfWidth, pdfHeight)
 
         remainingHeight -= contentHeight
         offset += contentHeight
@@ -213,25 +213,25 @@ async function exportPdf(): Promise<void> {
   }
 }
 
-/* 在当前 PDF 页底部右侧绘制横向排列的二维码 + MD2IMG 文字 */
+/* 在当前 PDF 页右下角绘制横向排列的二维码 + MD2IMG 文字（距右、下边各 3mm） */
 function drawPdfFooter(
   pdf: jsPDF,
   pdfWidth: number,
   pdfHeight: number,
-  margin: number,
-  footerReserved: number,
 ): void {
-  const qrSize = 8   // mm
-  const gap = 2      // mm，QR 与文字间距
-  const rightEdge = pdfWidth - margin                       // 200mm
-  const footerY = pdfHeight - margin - footerReserved + 4   // QR 顶部 y
+  const qrSize = 6     // mm
+  const gap = 2        // mm，QR 与文字间距
+  const edgeMargin = 3 // mm，距右、下边距
+  const rightEdge = pdfWidth - edgeMargin                       // 207
+  const groupBottomY = pdfHeight - edgeMargin                   // 294
+  const footerY = groupBottomY - qrSize                         // QR 顶部 y
 
   pdf.setFont('helvetica', 'bold')
-  pdf.setFontSize(8)
+  pdf.setFontSize(7)
   pdf.setTextColor(136, 136, 136)
 
   const textWidth = pdf.getTextWidth('MD2IMG')
-  const textBaselineY = footerY + qrSize - 1                // 与 QR 底部基本对齐
+  const textBaselineY = groupBottomY                            // 文字 baseline 与 QR 底部对齐
 
   // 文字右对齐到右边距
   pdf.text('MD2IMG', rightEdge, textBaselineY, { align: 'right' })
